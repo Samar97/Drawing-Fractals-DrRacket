@@ -1,0 +1,85 @@
+#lang racket
+
+(require plot)
+(plot-new-window? #t)
+(plot-width 900)
+(plot-height 900)
+(define (draw curve)
+(plot (parametric
+(lambda (t) (vector (x-of (curve t)) (y-of (curve t))))
+0 1 #:width 1 #:samples 10000
+#:x-min -5 #:x-max 5
+#:y-min -5 #:y-max 5)))
+
+
+(define (make-point x y)
+  (lambda (bit)
+    (if (zero? bit) x y)))
+
+(define (x-of point)
+  (point 0))
+
+(define (y-of point)
+  (point 1))
+(define unit-circle
+(lambda (t) (make-point (sin (* 2 pi t)) (cos (* 2 pi t)))))
+
+(define (unit-line-at y)
+  (lambda (t) (make-point t y)))
+
+(define unit-line (unit-line-at 0))
+
+(define (vertical-line p l)
+  (lambda(t) (make-point (p 0) (+ (p 1) (* l t)))))
+
+(define (rotate-pi/2 curve)
+  (lambda(t) (let* ((ct (curve t)))
+    (make-point (- (y-of ct)) (x-of ct)))))
+
+(define (reflect-through-y-axis curve)
+  (lambda(t) (let* ((ct (curve t)))
+    (make-point (- (x-of ct)) (y-of ct)))))
+
+(define (translate x y curve)
+  (lambda(t) (let* ((ct (curve t)))
+    (make-point (+ x (x-of ct)) (+ y (y-of ct))))))
+
+(define (scale x y curve)
+  (lambda(t) (let* ((ct (curve t)))
+    (make-point (* x (x-of ct)) (* y (y-of ct))))))
+
+(define (rotate-around-origin radians curve)
+  (lambda(t) (let* ((ct (curve t))
+                    (xold (x-of ct))
+                    (yold (y-of ct)))
+    (make-point (- (* xold (cos radians)) (* yold (sin radians))) (+ (* yold (cos radians)) (* xold (sin radians)))))))
+
+(define (put-in-standard-position curve)
+  (lambda(t) (let* ([ct (curve t)]
+                    [xold (x-of ct)]
+                    [yold (y-of ct)]
+                    [xtrans (x-of (curve 0))]
+                    [ytrans (y-of (curve 0))]
+                    [endx-after-trans (- (x-of (curve 1)) xtrans)]
+                    [endy-after-trans (- (y-of (curve 1)) ytrans)]
+                    [ang (atan endy-after-trans endx-after-trans)]
+                    [endx-rotated (- (* endx-after-trans (cos (- ang))) (* endy-after-trans (sin (- ang))))]
+                    [endy-rotated (+ (* endy-after-trans (cos (- ang))) (* endx-after-trans (sin (- ang))))]
+                    [x-after-trans (- xold xtrans)]
+                    [y-after-trans (- yold ytrans)]
+                    [x-rotated (- (* x-after-trans (cos (- ang))) (* y-after-trans (sin (- ang))))]
+                    [y-rotated (+ (* y-after-trans (cos (- ang))) (* x-after-trans (sin (- ang))))]
+                    [x-final (/ x-rotated endx-rotated)]
+                    [y-final (/ y-rotated endx-rotated)])
+               (make-point x-final y-final))))
+
+(define cust-parabola (lambda(t) (make-point (* 4 t) (* 16 t t)))) ;Remove it later 
+
+(define (connect-rigidly curve1 curve2)
+(lambda (t)
+(if (< t (/ 1 2))
+(curve1 (* 2 t))
+(curve2 (- (* 2 t) 1)))))
+
+(define (connect-ends curve1 curve2)
+  (lambda(t) (if (< t 1/2) (curve1 (* 2 t)) ((translate (x-of (curve1 1)) (y-of (curve1 1)) curve2) (- (* 2 t) 1)))))
